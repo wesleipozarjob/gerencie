@@ -260,6 +260,7 @@ export const DataProvider = ({ children }) => {
       stock_quantity: Number(prodData.stock_quantity) || 0,
       min_stock: Number(prodData.min_stock) || 5,
       unit: prodData.unit || 'un',
+      package_units: Number(prodData.package_units) || 1,
       is_active: true,
       created_at: new Date().toISOString()
     };
@@ -283,7 +284,12 @@ export const DataProvider = ({ children }) => {
       try {
         await supabase.from('products').insert([newProd]);
       } catch (e) {
-        console.warn('Erro ao salvar produto no Supabase:', e);
+        if (e?.message && e.message.includes('package_units')) {
+          const { package_units, ...withoutPkg } = newProd;
+          await supabase.from('products').insert([withoutPkg]).catch(err => console.warn('Erro retry sem package_units:', err));
+        } else {
+          console.warn('Erro ao salvar produto no Supabase:', e);
+        }
       }
     }
 
@@ -299,7 +305,12 @@ export const DataProvider = ({ children }) => {
       try {
         await supabase.from('products').update(updatedFields).eq('id', id);
       } catch (e) {
-        console.warn('Erro ao atualizar produto no Supabase:', e);
+        if (e?.message && e.message.includes('package_units')) {
+          const { package_units, ...withoutPkg } = updatedFields;
+          await supabase.from('products').update(withoutPkg).eq('id', id).catch(err => console.warn('Erro retry sem package_units:', err));
+        } else {
+          console.warn('Erro ao atualizar produto no Supabase:', e);
+        }
       }
     }
   };

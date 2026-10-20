@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     stock_quantity NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     min_stock NUMERIC(12, 2) DEFAULT 5.00,
     unit TEXT DEFAULT 'un', -- 'un', 'kg', 'cx', 'pct', 'lt'
+    package_units NUMERIC(10, 2) DEFAULT 1, -- Quantidade de unidades que vêm no pacote/caixa
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

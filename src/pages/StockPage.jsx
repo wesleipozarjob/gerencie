@@ -46,7 +46,9 @@ export const StockPage = () => {
     sale_price: '',
     stock_quantity: '',
     min_stock: '',
-    unit: 'un'
+    unit: 'un',
+    package_units: '1',
+    package_count: ''
   });
 
   const formatMoney = (val) => {
@@ -86,7 +88,9 @@ export const StockPage = () => {
       sale_price: '',
       stock_quantity: '0',
       min_stock: '5',
-      unit: 'un'
+      unit: 'un',
+      package_units: '1',
+      package_count: ''
     });
     setIsFormOpen(true);
   };
@@ -94,6 +98,10 @@ export const StockPage = () => {
   // Abrir modal de edição
   const handleEdit = (prod) => {
     setEditingProduct(prod);
+    const pkgUnits = Number(prod.package_units) || 1;
+    const currentTotalUnits = Number(prod.stock_quantity) || 0;
+    const pkgCount = pkgUnits > 1 ? Math.floor(currentTotalUnits / pkgUnits).toString() : '';
+
     setFormData({
       name: prod.name || '',
       sku: prod.sku || '',
@@ -102,7 +110,9 @@ export const StockPage = () => {
       sale_price: prod.sale_price || '',
       stock_quantity: prod.stock_quantity || '0',
       min_stock: prod.min_stock || '5',
-      unit: prod.unit || 'un'
+      unit: prod.unit || 'un',
+      package_units: (prod.package_units || 1).toString(),
+      package_count: pkgCount
     });
     setIsFormOpen(true);
   };
@@ -110,10 +120,26 @@ export const StockPage = () => {
   // Salvar Produto
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+
+    const isPkg = formData.unit === 'pct' || formData.unit === 'cx';
+    const pkgUnits = isPkg ? (Number(formData.package_units) || 1) : 1;
+
+    // Se informou pacotes, calcula o estoque total em unidades base
+    let calculatedStock = Number(formData.stock_quantity) || 0;
+    if (isPkg && formData.package_count !== '') {
+      calculatedStock = (Number(formData.package_count) || 0) * pkgUnits;
+    }
+
+    const payload = {
+      ...formData,
+      package_units: pkgUnits,
+      stock_quantity: calculatedStock
+    };
+
     if (editingProduct) {
-      await updateProduct(editingProduct.id, formData);
+      await updateProduct(editingProduct.id, payload);
     } else {
-      await addProduct(formData);
+      await addProduct(payload);
     }
     setIsFormOpen(false);
   };
@@ -128,12 +154,28 @@ export const StockPage = () => {
   // Submeter ajuste rápido de estoque
   const handleSaveAdjustment = async (e) => {
     e.preventDefault();
-    const qty = Number(adjustModal.quantity);
-    if (!qty || qty <= 0) return;
+    const rawQty = Number(adjustModal.quantity);
+    if (!rawQty || rawQty <= 0) return;
 
-    const delta = adjustModal.type === 'entrada' ? qty : -qty;
-    await adjustStock(adjustModal.product.id, delta, adjustModal.reason || (adjustModal.type === 'entrada' ? 'Entrada avulsa' : 'Baixa avulsa'));
-    setAdjustModal({ open: false, product: null, type: 'entrada', quantity: '', reason: '' });
+    const prod = adjustModal.product;
+    const pkgUnits = Number(prod?.package_units) || 1;
+    const isSellingInPackages = adjustModal.unitType === 'pct' && pkgUnits > 1;
+
+    // Converte pacotes para unidades base caso tenha selecionado pacotes
+    const effectiveUnits = isSellingInPackages ? rawQty * pkgUnits : rawQty;
+    const delta = adjustModal.type === 'entrada' ? effectiveUnits : -effectiveUnits;
+
+    const unitLabel = isSellingInPackages 
+      ? `${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} (${effectiveUnits} un)` 
+      : `${rawQty} un`;
+
+    await adjustStock(
+      prod.id, 
+      delta, 
+      adjustModal.reason || `${adjustModal.type === 'entrada' ? 'Entrada' : 'Baixa'} de ${unitLabel}`
+    );
+
+    setAdjustModal({ open: false, product: null, type: 'entrada', quantity: '', unitType: 'un', reason: '' });
   };
 
   return (
@@ -279,16 +321,58 @@ export const StockPage = () => {
 
                           {/* Quantidade em Estoque */}
                           <td>
-                            <div style={{
-                              fontWeight: 800,
-                              fontSize: '1rem',
-                              color: isOut ? 'var(--danger-text)' : isLow ? 'var(--warning-text)' : 'var(--success-text)'
-                            }}>
-                              {qty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>{prod.unit}</span>
-                            </div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              Mínimo: {min} {prod.unit}
-                            </div>
+                            {(() => {
+                              const pkgUnits = Number(prod.package_units) || 1;
+                              const isPkg = (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1);
+
+                              if (isPkg && pkgUnits > 1) {
+                                const fullPkgs = Math.floor(qty / pkgUnits);
+                                const remUnits = qty % pkgUnits;
+                                return (
+                                  <div>
+                                    <div style={{
+                                      fontWeight: 800,
+                                      fontSize: '1rem',
+                                      color: isOut ? 'var(--danger-text)' : isLow ? 'var(--warning-text)' : 'var(--success-text)'
+                                    }}>
+                                      {qty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>unidades</span>
+                                    </div>
+                                    <div style={{
+                                      fontSize: '0.76rem',
+                                      fontWeight: 700,
+                                      color: isOut ? 'var(--danger-text)' : 'var(--primary-text)',
+                                      marginTop: '2px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}>
+                                      <span>📦</span>
+                                      <span>
+                                        {fullPkgs} {prod.unit === 'cx' ? 'cx' : 'pct'}{remUnits > 0 ? ` e ${remUnits} un` : ' fechado(s)'}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                      Mín: {min} un ({Math.ceil(min / pkgUnits)} {prod.unit === 'cx' ? 'cx' : 'pct'})
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div>
+                                  <div style={{
+                                    fontWeight: 800,
+                                    fontSize: '1rem',
+                                    color: isOut ? 'var(--danger-text)' : isLow ? 'var(--warning-text)' : 'var(--success-text)'
+                                  }}>
+                                    {qty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>{prod.unit}</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                    Mínimo: {min} {prod.unit}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Badge */}
@@ -466,9 +550,137 @@ export const StockPage = () => {
                   </div>
                 </div>
 
-                <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Preço de Custo (R$)</label>
+                {/* Linha: Unidade de Medida & Estoque Mínimo */}
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Unidade de Medida *</label>
+                    <select
+                      className="form-control"
+                      value={formData.unit}
+                      onChange={(e) => {
+                        const newUnit = e.target.value;
+                        const isPkg = newUnit === 'pct' || newUnit === 'cx';
+                        setFormData(prev => ({
+                          ...prev,
+                          unit: newUnit,
+                          package_units: isPkg && (!prev.package_units || prev.package_units === '1') ? '20' : (isPkg ? prev.package_units : '1')
+                        }));
+                      }}
+                    >
+                      <option value="un">un (Unidade Avulsa)</option>
+                      <option value="pct">pct (Pacote)</option>
+                      <option value="cx">cx (Caixa)</option>
+                      <option value="kg">kg (Quilo)</option>
+                      <option value="lt">lt (Litro)</option>
+                      <option value="mt">mt (Metro)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Estoque Mínimo (Alerta)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      placeholder="Ex: 5"
+                      value={formData.min_stock}
+                      onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* ABA / BOX CONDICIONAL: CONFIGURAÇÃO DE PACOTE OU CAIXA */}
+                {(formData.unit === 'pct' || formData.unit === 'cx') && (
+                  <div style={{
+                    padding: '14px 16px',
+                    background: 'var(--primary-light)',
+                    border: '1px solid var(--primary-border)',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-text)', fontWeight: 700, fontSize: '0.88rem' }}>
+                        <Package size={17} /> Configuração do {formData.unit === 'cx' ? 'Caixa' : 'Pacote'}
+                      </div>
+                      <span style={{ fontSize: '0.74rem', background: '#ffffff', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--primary-border)', color: 'var(--primary-text)', fontWeight: 600 }}>
+                        Conversão Automática
+                      </span>
+                    </div>
+
+                    <div className="form-grid-2">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Quantas unidades vêm no {formData.unit === 'cx' ? 'caixa' : 'pacote'}? *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="form-control"
+                          placeholder="Ex: 20"
+                          value={formData.package_units}
+                          onChange={(e) => {
+                            const pkgU = e.target.value;
+                            setFormData(prev => {
+                              const pCount = Number(prev.package_count || 0);
+                              const uPerPkg = Number(pkgU || 1);
+                              return {
+                                ...prev,
+                                package_units: pkgU,
+                                stock_quantity: pCount > 0 ? (pCount * uPerPkg).toString() : prev.stock_quantity
+                              };
+                            });
+                          }}
+                          required
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Estoque Inicial ({formData.unit === 'cx' ? 'Caixas' : 'Pacotes'})</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          className="form-control"
+                          placeholder="Ex: 5"
+                          value={formData.package_count}
+                          onChange={(e) => {
+                            const count = e.target.value;
+                            const pkgUnits = Number(formData.package_units) || 1;
+                            setFormData(prev => ({
+                              ...prev,
+                              package_count: count,
+                              stock_quantity: (Number(count || 0) * pkgUnits).toString()
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{
+                      fontSize: '0.82rem',
+                      background: '#ffffff',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--primary-border)',
+                      color: 'var(--text-main)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '8px'
+                    }}>
+                      <span>
+                        📦 <strong>Estoque Total:</strong> {formData.package_count || 0} {formData.unit === 'cx' ? 'caixa(s)' : 'pacote(s)'} × {formData.package_units || 1} un = <strong style={{ color: 'var(--primary-text)' }}>{Number(formData.stock_quantity) || 0} unidades</strong>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preços */}
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Preço de Custo da Unidade (R$)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -478,8 +690,8 @@ export const StockPage = () => {
                       onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Preço de Venda (R$) *</label>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Preço de Venda da Unidade (R$) *</label>
                     <input
                       type="number"
                       step="0.01"
@@ -489,47 +701,29 @@ export const StockPage = () => {
                       onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
                       required
                     />
+                    {(formData.unit === 'pct' || formData.unit === 'cx') && Number(formData.package_units) > 1 && Number(formData.sale_price) > 0 && (
+                      <div style={{ fontSize: '0.74rem', color: 'var(--primary-text)', fontWeight: 600, marginTop: '3px' }}>
+                        💰 Pacote completo sai por: R$ {(Number(formData.sale_price) * Number(formData.package_units)).toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="form-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Quantidade Inicial</label>
+                {/* Quantidade Inicial manual para produtos normais */}
+                {formData.unit !== 'pct' && formData.unit !== 'cx' && (
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Quantidade Inicial em Estoque ({formData.unit}) *</label>
                     <input
                       type="number"
                       step="0.01"
                       className="form-control"
+                      placeholder="Ex: 50"
                       value={formData.stock_quantity}
                       onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Estoque Mínimo</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      value={formData.min_stock}
-                      onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Unidade</label>
-                    <select
-                      className="form-control"
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    >
-                      <option value="un">un (Unidade)</option>
-                      <option value="pct">pct (Pacote)</option>
-                      <option value="cx">cx (Caixa)</option>
-                      <option value="kg">kg (Quilo)</option>
-                      <option value="lt">lt (Litro)</option>
-                      <option value="mt">mt (Metro)</option>
-                    </select>
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="modal-footer">
@@ -550,7 +744,7 @@ export const StockPage = () => {
       {/* ============================================================== */}
       {adjustModal.open && (
         <div className="modal-overlay" onClick={() => setAdjustModal({ ...adjustModal, open: false })}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 style={{ margin: 0, color: 'var(--text-main)' }}>
                 {adjustModal.type === 'entrada' ? '➕ Entrada de Estoque' : '➖ Saída de Estoque'}
@@ -561,32 +755,106 @@ export const StockPage = () => {
             </div>
 
             <form onSubmit={handleSaveAdjustment}>
-              <div className="modal-body">
-                <p style={{ fontSize: '0.9rem', marginBottom: '14px', color: 'var(--text-secondary)' }}>
-                  Produto: <strong>{adjustModal.product?.name}</strong><br />
-                  Estoque atual: <strong>{adjustModal.product?.stock_quantity} {adjustModal.product?.unit}</strong>
-                </p>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {(() => {
+                  const prod = adjustModal.product;
+                  const pkgUnits = Number(prod?.package_units) || 1;
+                  const curUnits = Number(prod?.stock_quantity) || 0;
+                  const isPkg = (prod?.unit === 'pct' || prod?.unit === 'cx' || pkgUnits > 1);
 
-                <div className="form-group">
-                  <label className="form-label">Quantidade a {adjustModal.type === 'entrada' ? 'Adicionar' : 'Remover'} *</label>
+                  return (
+                    <div style={{
+                      padding: '12px 14px',
+                      background: 'var(--bg-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.86rem',
+                      color: 'var(--text-secondary)'
+                    }}>
+                      <div>Produto: <strong style={{ color: 'var(--text-main)' }}>{prod?.name}</strong></div>
+                      <div style={{ marginTop: '2px' }}>
+                        Estoque atual: <strong style={{ color: 'var(--text-main)' }}>{curUnits} unidades</strong>
+                        {isPkg && pkgUnits > 1 && (
+                          <span style={{ color: 'var(--primary-text)', fontWeight: 600, marginLeft: '6px' }}>
+                            ({Math.floor(curUnits / pkgUnits)} {prod.unit === 'cx' ? 'cx' : 'pct'} e {curUnits % pkgUnits} un)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Alternador de Unidade vs Pacote no Ajuste */}
+                {(() => {
+                  const prod = adjustModal.product;
+                  const pkgUnits = Number(prod?.package_units) || 1;
+                  const isPkg = (prod?.unit === 'pct' || prod?.unit === 'cx' || pkgUnits > 1);
+
+                  if (!isPkg || pkgUnits <= 1) return null;
+
+                  return (
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">Ajustar por:</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            background: adjustModal.unitType === 'un' ? 'var(--primary-light)' : '#ffffff',
+                            border: `1px solid ${adjustModal.unitType === 'un' ? 'var(--primary-border)' : 'var(--border-subtle)'}`,
+                            color: adjustModal.unitType === 'un' ? 'var(--primary-text)' : 'var(--text-muted)',
+                            fontWeight: adjustModal.unitType === 'un' ? 700 : 500
+                          }}
+                          onClick={() => setAdjustModal(prev => ({ ...prev, unitType: 'un' }))}
+                        >
+                          Unidades Avulsas
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            background: adjustModal.unitType === 'pct' ? 'var(--primary-light)' : '#ffffff',
+                            border: `1px solid ${adjustModal.unitType === 'pct' ? 'var(--primary-border)' : 'var(--border-subtle)'}`,
+                            color: adjustModal.unitType === 'pct' ? 'var(--primary-text)' : 'var(--text-muted)',
+                            fontWeight: adjustModal.unitType === 'pct' ? 700 : 500
+                          }}
+                          onClick={() => setAdjustModal(prev => ({ ...prev, unitType: 'pct' }))}
+                        >
+                          {prod.unit === 'cx' ? 'Caixas' : 'Pacotes'} ({pkgUnits} un)
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">
+                    {adjustModal.unitType === 'pct' 
+                      ? `Quantidade de ${adjustModal.product?.unit === 'cx' ? 'Caixas' : 'Pacotes'} a ${adjustModal.type === 'entrada' ? 'Adicionar' : 'Remover'} *`
+                      : `Quantidade de Unidades a ${adjustModal.type === 'entrada' ? 'Adicionar' : 'Remover'} *`}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     className="form-control"
-                    placeholder="Ex: 10"
+                    placeholder="Ex: 5"
                     autoFocus
                     value={adjustModal.quantity}
                     onChange={(e) => setAdjustModal({ ...adjustModal, quantity: e.target.value })}
                     required
                   />
+                  {adjustModal.unitType === 'pct' && Number(adjustModal.quantity) > 0 && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--primary-text)', fontWeight: 600, marginTop: '4px' }}>
+                      💡 Equivale a {Number(adjustModal.quantity) * (Number(adjustModal.product?.package_units) || 1)} unidades no estoque.
+                    </div>
+                  )}
                 </div>
 
-                <div className="form-group">
+                <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Motivo / Documento</label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder={adjustModal.type === 'entrada' ? 'Ex: NF 4590 do Fornecedor' : 'Ex: Avaria, vencimento ou consumo interno'}
+                    placeholder={adjustModal.type === 'entrada' ? 'Ex: NF do Fornecedor' : 'Ex: Avaria, vencimento ou consumo'}
                     value={adjustModal.reason}
                     onChange={(e) => setAdjustModal({ ...adjustModal, reason: e.target.value })}
                   />

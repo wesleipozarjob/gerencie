@@ -408,12 +408,20 @@ select.form-control {
   border-radius: var(--radius-xl);
   width: 100%;
   max-width: 620px;
-  max-height: 90vh;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-xl);
   overflow: hidden;
   animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -423,22 +431,25 @@ select.form-control {
   align-items: center;
   justify-content: space-between;
   background: #ffffff;
+  flex-shrink: 0;
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 22px 24px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
   background: #ffffff;
 }
 
 .modal-footer {
-  padding: 16px 24px;
+  padding: 14px 24px;
   border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: var(--bg-subtle);
+  background: #f8fafc;
+  flex-shrink: 0;
 }
 
 /* Tables */
