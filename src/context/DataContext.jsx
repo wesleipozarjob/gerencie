@@ -399,32 +399,70 @@ export const DataProvider = ({ children }) => {
       created_at: new Date().toISOString()
     };
 
-    // Baixa automática no estoque dos itens
-    items.forEach(item => {
-      if (item.product_id) {
-        const prod = allProducts.find(p => p.id === item.product_id);
-        if (prod) {
-          const curQty = Number(prod.stock_quantity) || 0;
-          const soldQty = Number(item.quantity) || 0;
-          const newQty = Math.max(0, curQty - soldQty);
+    // 1. Baixa e subtração atômica no estoque de cada produto vendido
+    let updatedProducts = [...allProducts];
+    const newMovements = [];
 
-          updateProduct(item.product_id, { stock_quantity: newQty });
-
-          addStockMovement({
-            product_id: item.product_id,
-            movement_type: 'venda',
-            quantity: soldQty,
-            previous_stock: curQty,
-            new_stock: newQty,
-            reason: `Venda #${saleId.slice(0, 8)} para ${newSale.customer_id ? 'cliente' : 'balcão'}`
-          });
-        }
+    // Agrupa quantidades vendidas por produto para cálculo preciso
+    const soldByProduct = {};
+    items.forEach(it => {
+      if (it.product_id) {
+        soldByProduct[it.product_id] = (soldByProduct[it.product_id] || 0) + (Number(it.quantity) || 0);
       }
     });
 
+    const supabase = getSupabaseClient();
+
+    for (const [prodId, soldQty] of Object.entries(soldByProduct)) {
+      if (soldQty <= 0) continue;
+      const prod = updatedProducts.find(p => p.id === prodId);
+      if (prod) {
+        const curQty = Number(prod.stock_quantity) || 0;
+        const newQty = Math.max(0, curQty - soldQty); // SUBTRAÇÃO DO ESTOQUE
+
+        updatedProducts = updatedProducts.map(p => 
+          p.id === prodId ? { ...p, stock_quantity: newQty } : p
+        );
+
+        newMovements.push({
+          id: generateUUID(),
+          company_id: companyId,
+          product_id: prodId,
+          movement_type: 'venda',
+          quantity: soldQty,
+          previous_stock: curQty,
+          new_stock: newQty,
+          reason: `Venda #${saleId.slice(0, 8)} para ${newSale.customer_id ? 'cliente' : 'balcão'} (${prod.name})`,
+          created_at: new Date().toISOString()
+        });
+
+        // Atualiza no banco Supabase
+        if (supabase) {
+          try {
+            await supabase.from('products').update({ stock_quantity: newQty }).eq('id', prodId);
+          } catch (err) {
+            console.warn('Erro ao atualizar estoque no Supabase:', err);
+          }
+        }
+      }
+    }
+
+    if (newMovements.length > 0) {
+      persistProducts(updatedProducts);
+      persistMovements([...newMovements, ...allMovements]);
+
+      if (supabase) {
+        try {
+          await supabase.from('stock_movements').insert(newMovements);
+        } catch (err) {
+          console.warn('Erro ao salvar movimentações de venda no Supabase:', err);
+        }
+      }
+    }
+
+    // 2. Registra a venda
     persistSales([newSale, ...allSales]);
 
-    const supabase = getSupabaseClient();
     if (supabase) {
       try {
         await supabase.from('sales').insert([{

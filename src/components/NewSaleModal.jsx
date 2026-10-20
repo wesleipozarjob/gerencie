@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Plus, Trash2, X, CheckCircle, User, Package, Calendar } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useData } from '../context/DataContext';
@@ -17,6 +17,19 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
   const [items, setItems] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [itemQuantity, setItemQuantity] = useState('1');
+
+  useEffect(() => {
+    if (isOpen) {
+      setCustomerId(initialCustomer?.id || '');
+      setItems([]);
+      setSelectedProductId('');
+      setItemQuantity('1');
+      setNotes('');
+      setPaidInput('0');
+      setPaymentType('devendo');
+      setPaymentMethod('a_prazo');
+    }
+  }, [isOpen, initialCustomer]);
 
   if (!isOpen) return null;
 
@@ -63,16 +76,43 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (items.length === 0) {
+
+    let finalItems = [...items];
+    // Se o usuário selecionou um produto mas não clicou no botão "Adicionar", inclui automaticamente
+    if (selectedProductId) {
+      const prod = products.find(p => p.id === selectedProductId);
+      if (prod) {
+        const qty = Number(itemQuantity) || 1;
+        const unitPrice = Number(prod.sale_price) || 0;
+        finalItems.push({
+          product_id: prod.id,
+          product_name: prod.name,
+          quantity: qty,
+          unit_price: unitPrice,
+          subtotal: qty * unitPrice,
+          unit: prod.unit
+        });
+      }
+    }
+
+    if (finalItems.length === 0) {
       alert('Adicione pelo menos um produto ou item à venda.');
       return;
     }
 
+    const calculatedTotal = finalItems.reduce((acc, it) => acc + it.subtotal, 0);
+    let calculatedPaid = 0;
+    if (paymentType === 'pago') {
+      calculatedPaid = calculatedTotal;
+    } else if (paymentType === 'parcial') {
+      calculatedPaid = Math.min(calculatedTotal, Number(paidInput) || 0);
+    }
+
     await addSale({
       customer_id: customerId || null,
-      items,
-      total_amount: totalAmount,
-      paid_amount: finalPaid,
+      items: finalItems,
+      total_amount: calculatedTotal,
+      paid_amount: calculatedPaid,
       payment_method: paymentMethod,
       notes,
       sale_date: saleDate
