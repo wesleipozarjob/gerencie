@@ -48,7 +48,8 @@ export const StockPage = () => {
     min_stock: '',
     unit: 'un',
     package_units: '1',
-    package_count: ''
+    package_count: '',
+    package_loose_units: ''
   });
 
   const formatMoney = (val) => {
@@ -90,7 +91,8 @@ export const StockPage = () => {
       min_stock: '5',
       unit: 'un',
       package_units: '1',
-      package_count: ''
+      package_count: '',
+      package_loose_units: ''
     });
     setIsFormOpen(true);
   };
@@ -101,6 +103,7 @@ export const StockPage = () => {
     const pkgUnits = Number(prod.package_units) || 1;
     const currentTotalUnits = Number(prod.stock_quantity) || 0;
     const pkgCount = pkgUnits > 1 ? Math.floor(currentTotalUnits / pkgUnits).toString() : '';
+    const looseUnits = pkgUnits > 1 ? (currentTotalUnits % pkgUnits).toString() : '';
 
     setFormData({
       name: prod.name || '',
@@ -112,7 +115,8 @@ export const StockPage = () => {
       min_stock: prod.min_stock || '5',
       unit: prod.unit || 'un',
       package_units: (prod.package_units || 1).toString(),
-      package_count: pkgCount
+      package_count: pkgCount,
+      package_loose_units: looseUnits
     });
     setIsFormOpen(true);
   };
@@ -124,10 +128,12 @@ export const StockPage = () => {
     const isPkg = formData.unit === 'pct' || formData.unit === 'cx';
     const pkgUnits = isPkg ? (Number(formData.package_units) || 1) : 1;
 
-    // Se informou pacotes, calcula o estoque total em unidades base
+    // Se informou pacotes ou avulsas, calcula o estoque total em unidades base
     let calculatedStock = Number(formData.stock_quantity) || 0;
-    if (isPkg && formData.package_count !== '') {
-      calculatedStock = (Number(formData.package_count) || 0) * pkgUnits;
+    if (isPkg && (formData.package_count !== '' || formData.package_loose_units !== '')) {
+      const pCount = Number(formData.package_count) || 0;
+      const loose = Number(formData.package_loose_units) || 0;
+      calculatedStock = (pCount * pkgUnits) + loose;
     }
 
     const payload = {
@@ -623,11 +629,13 @@ export const StockPage = () => {
                             const pkgU = e.target.value;
                             setFormData(prev => {
                               const pCount = Number(prev.package_count || 0);
+                              const loose = Number(prev.package_loose_units || 0);
                               const uPerPkg = Number(pkgU || 1);
+                              const total = (pCount * uPerPkg) + loose;
                               return {
                                 ...prev,
                                 package_units: pkgU,
-                                stock_quantity: pCount > 0 ? (pCount * uPerPkg).toString() : prev.stock_quantity
+                                stock_quantity: total.toString()
                               };
                             });
                           }}
@@ -636,7 +644,11 @@ export const StockPage = () => {
                       </div>
 
                       <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label">Estoque Inicial ({formData.unit === 'cx' ? 'Caixas' : 'Pacotes'})</label>
+                        <label className="form-label">
+                          {editingProduct 
+                            ? `${formData.unit === 'cx' ? 'Caixas Fechadas' : 'Pacotes Fechados'}`
+                            : `Estoque Inicial (${formData.unit === 'cx' ? 'Caixas' : 'Pacotes'})`}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -647,20 +659,48 @@ export const StockPage = () => {
                           onChange={(e) => {
                             const count = e.target.value;
                             const pkgUnits = Number(formData.package_units) || 1;
+                            const loose = Number(formData.package_loose_units || 0);
+                            const total = (Number(count || 0) * pkgUnits) + loose;
                             setFormData(prev => ({
                               ...prev,
                               package_count: count,
-                              stock_quantity: (Number(count || 0) * pkgUnits).toString()
+                              stock_quantity: total.toString()
                             }));
                           }}
                         />
                       </div>
                     </div>
 
+                    {/* Unidades Avulsas (Latas ou Itens soltos fora do pacote) */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">
+                        Unidades Avulsas (Itens ou latas fora do pacote fechado)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="form-control"
+                        placeholder="Ex: 2"
+                        value={formData.package_loose_units}
+                        onChange={(e) => {
+                          const loose = e.target.value;
+                          const pkgUnits = Number(formData.package_units) || 1;
+                          const count = Number(formData.package_count || 0);
+                          const total = (count * pkgUnits) + Number(loose || 0);
+                          setFormData(prev => ({
+                            ...prev,
+                            package_loose_units: loose,
+                            stock_quantity: total.toString()
+                          }));
+                        }}
+                      />
+                    </div>
+
                     <div style={{
                       fontSize: '0.82rem',
                       background: '#ffffff',
-                      padding: '8px 12px',
+                      padding: '10px 14px',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--primary-border)',
                       color: 'var(--text-main)',
@@ -671,7 +711,14 @@ export const StockPage = () => {
                       gap: '8px'
                     }}>
                       <span>
-                        📦 <strong>Estoque Total:</strong> {formData.package_count || 0} {formData.unit === 'cx' ? 'caixa(s)' : 'pacote(s)'} × {formData.package_units || 1} un = <strong style={{ color: 'var(--primary-text)' }}>{Number(formData.stock_quantity) || 0} unidades</strong>
+                        📦 <strong>{editingProduct ? 'Estoque Atual:' : 'Estoque Inicial Total:'}</strong>{' '}
+                        {Number(formData.package_count) || 0} {formData.unit === 'cx' ? 'cx' : 'pct'}{' '}
+                        ({(Number(formData.package_count) || 0) * (Number(formData.package_units) || 1)} un)
+                        {Number(formData.package_loose_units) > 0 && ` + ${formData.package_loose_units} avulsa(s)`}
+                        {' = '}
+                        <strong style={{ color: 'var(--primary-text)', fontSize: '0.92rem' }}>
+                          {Number(formData.stock_quantity) || 0} unidades no estoque
+                        </strong>
                       </span>
                     </div>
                   </div>
@@ -712,7 +759,11 @@ export const StockPage = () => {
                 {/* Quantidade Inicial manual para produtos normais */}
                 {formData.unit !== 'pct' && formData.unit !== 'cx' && (
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Quantidade Inicial em Estoque ({formData.unit}) *</label>
+                    <label className="form-label">
+                      {editingProduct 
+                        ? `Quantidade Atual em Estoque (${formData.unit}) *` 
+                        : `Quantidade Inicial em Estoque (${formData.unit}) *`}
+                    </label>
                     <input
                       type="number"
                       step="0.01"

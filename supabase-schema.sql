@@ -126,15 +126,147 @@ ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_movements ENABLE ROW LEVEL SECURITY;
 
--- 11. Políticas de Segurança (Permitir acesso completo a usuários autenticados para sua empresa ou anon para demonstração)
--- Criação de política pública/autenticada para garantir funcionamento fácil
-CREATE POLICY "Acesso perfis" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Acesso empresas" ON public.companies FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Acesso clientes" ON public.customers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Acesso produtos" ON public.products FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Acesso vendas" ON public.sales FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Acesso itens_venda" ON public.sale_items FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Acesso movimentacoes" ON public.stock_movements FOR ALL USING (true) WITH CHECK (true);
+-- 11. Funções Auxiliares de Segurança Multi-Tenant (PostgreSQL)
+
+-- Função para verificar se o usuário autenticado é o Administrador Master do sistema
+CREATE OR REPLACE FUNCTION public.is_master_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN COALESCE(
+    LOWER(auth.jwt() ->> 'email') = 'weslei.pozar@hotmail.com',
+    false
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função para obter a empresa vinculada ao usuário autenticado atual
+CREATE OR REPLACE FUNCTION public.get_current_user_company_id()
+RETURNS UUID AS $$
+BEGIN
+  RETURN (
+    SELECT company_id 
+    FROM public.profiles 
+    WHERE id = auth.uid() 
+    LIMIT 1
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função para validar se o usuário tem permissão para acessar determinada empresa
+CREATE OR REPLACE FUNCTION public.user_has_company_access(target_company_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  -- 1. Master admin (Weslei Pozar) tem acesso a todas as empresas
+  IF public.is_master_admin() THEN
+    RETURN true;
+  END IF;
+
+  -- 2. Usuário com vínculo direto no seu perfil
+  IF target_company_id = public.get_current_user_company_id() THEN
+    RETURN true;
+  END IF;
+
+  -- 3. Usuário cujo e-mail cadastrado na empresa coincide com o e-mail de login
+  IF EXISTS (
+    SELECT 1 FROM public.companies c
+    WHERE c.id = target_company_id
+      AND LOWER(c.email) = LOWER(auth.jwt() ->> 'email')
+  ) THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 12. Políticas de Segurança Granulares (Row Level Security - RLS)
+
+-- Remover políticas antigas permissivas caso existam
+DROP POLICY IF EXISTS "Acesso perfis" ON public.profiles;
+DROP POLICY IF EXISTS "Acesso empresas" ON public.companies;
+DROP POLICY IF EXISTS "Acesso clientes" ON public.customers;
+DROP POLICY IF EXISTS "Acesso produtos" ON public.products;
+DROP POLICY IF EXISTS "Acesso vendas" ON public.sales;
+DROP POLICY IF EXISTS "Acesso itens_venda" ON public.sale_items;
+DROP POLICY IF EXISTS "Acesso movimentacoes" ON public.stock_movements;
+
+DROP POLICY IF EXISTS "RLS_profiles_select" ON public.profiles;
+DROP POLICY IF EXISTS "RLS_profiles_insert" ON public.profiles;
+DROP POLICY IF EXISTS "RLS_profiles_update" ON public.profiles;
+DROP POLICY IF EXISTS "RLS_companies_select" ON public.companies;
+DROP POLICY IF EXISTS "RLS_companies_insert" ON public.companies;
+DROP POLICY IF EXISTS "RLS_companies_update" ON public.companies;
+DROP POLICY IF EXISTS "RLS_companies_delete" ON public.companies;
+DROP POLICY IF EXISTS "RLS_customers_all" ON public.customers;
+DROP POLICY IF EXISTS "RLS_products_all" ON public.products;
+DROP POLICY IF EXISTS "RLS_sales_all" ON public.sales;
+DROP POLICY IF EXISTS "RLS_sale_items_all" ON public.sale_items;
+DROP POLICY IF EXISTS "RLS_stock_movements_all" ON public.stock_movements;
+
+-- A. TABELA: PROFILES
+CREATE POLICY "RLS_profiles_select" ON public.profiles
+  FOR SELECT USING (auth.uid() = id OR public.is_master_admin());
+
+CREATE POLICY "RLS_profiles_insert" ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id OR public.is_master_admin());
+
+CREATE POLICY "RLS_profiles_update" ON public.profiles
+  FOR UPDATE USING (auth.uid() = id OR public.is_master_admin());
+
+-- B. TABELA: COMPANIES
+CREATE POLICY "RLS_companies_select" ON public.companies
+  FOR SELECT USING (public.is_master_admin() OR id = public.get_current_user_company_id() OR LOWER(email) = LOWER(auth.jwt() ->> 'email'));
+
+CREATE POLICY "RLS_companies_insert" ON public.companies
+  FOR INSERT WITH CHECK (public.is_master_admin());
+
+CREATE POLICY "RLS_companies_update" ON public.companies
+  FOR UPDATE USING (public.is_master_admin() OR id = public.get_current_user_company_id());
+
+CREATE POLICY "RLS_companies_delete" ON public.companies
+  FOR DELETE USING (public.is_master_admin());
+
+-- C. TABELA: CUSTOMERS (CLIENTES)
+CREATE POLICY "RLS_customers_all" ON public.customers
+  FOR ALL 
+  USING (public.user_has_company_access(company_id))
+  WITH CHECK (public.user_has_company_access(company_id));
+
+-- D. TABELA: PRODUCTS (PRODUTOS / ESTOQUE)
+CREATE POLICY "RLS_products_all" ON public.products
+  FOR ALL 
+  USING (public.user_has_company_access(company_id))
+  WITH CHECK (public.user_has_company_access(company_id));
+
+-- E. TABELA: SALES (VENDAS / CONTAS)
+CREATE POLICY "RLS_sales_all" ON public.sales
+  FOR ALL 
+  USING (public.user_has_company_access(company_id))
+  WITH CHECK (public.user_has_company_access(company_id));
+
+-- F. TABELA: SALE_ITEMS (ITENS DA VENDA)
+CREATE POLICY "RLS_sale_items_all" ON public.sale_items
+  FOR ALL 
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.sales s 
+      WHERE s.id = sale_items.sale_id 
+        AND public.user_has_company_access(s.company_id)
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.sales s 
+      WHERE s.id = sale_items.sale_id 
+        AND public.user_has_company_access(s.company_id)
+    )
+  );
+
+-- G. TABELA: STOCK_MOVEMENTS (HISTÓRICO DE ESTOQUE)
+CREATE POLICY "RLS_stock_movements_all" ON public.stock_movements
+  FOR ALL 
+  USING (public.user_has_company_access(company_id))
+  WITH CHECK (public.user_has_company_access(company_id));
 
 -- 12. Dados de Exemplo (Opcional - insere uma empresa modelo caso deseje)
 INSERT INTO public.companies (id, name, trade_name, document, phone, email)
