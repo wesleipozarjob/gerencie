@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// URL do projeto Supabase do usuário
+// URL e Chave Pública do projeto Supabase do usuário (gerencie)
 export const DEFAULT_SUPABASE_URL = 'https://kmobwowcxegheknlosgx.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_ABP17CWjePjAWtcp27BZCw_Rs05LnJb';
 
 export const getSupabaseConfig = () => {
   const envUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -10,7 +11,7 @@ export const getSupabaseConfig = () => {
   const localKey = localStorage.getItem('gerencie_supabase_key');
 
   const supabaseUrl = envUrl || localUrl || DEFAULT_SUPABASE_URL;
-  const supabaseAnonKey = envKey || localKey || '';
+  const supabaseAnonKey = envKey || localKey || DEFAULT_SUPABASE_ANON_KEY;
 
   return { 
     supabaseUrl: supabaseUrl.trim(), 

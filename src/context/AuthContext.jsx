@@ -180,24 +180,7 @@ export const AuthProvider = ({ children }) => {
     const { isConfigured } = getSupabaseConfig();
 
     if (!isConfigured || !supabase) {
-      // Fallback local se não tiver chave configurada
-      const localUser = {
-        id: 'usr-local',
-        email: email || 'admin@gerencie.com',
-        name: email ? email.split('@')[0].toUpperCase() : 'Gestor',
-        isSupabaseUser: false
-      };
-      const fallbackCompany = {
-        id: '00000000-0000-0000-0000-000000000001',
-        name: 'Minha Empresa',
-        trade_name: 'Minha Empresa'
-      };
-      localStorage.setItem('gerencie_local_user', JSON.stringify(localUser));
-      localStorage.setItem('gerencie_current_company', JSON.stringify(fallbackCompany));
-      setUser(localUser);
-      setCurrentCompany(fallbackCompany);
-      await fetchCompanies();
-      return { success: true, localMode: true };
+      throw new Error('Não foi possível conectar ao Supabase. Verifique sua conexão com a internet.');
     }
 
     // Autenticação Real no Supabase
