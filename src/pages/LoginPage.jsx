@@ -19,11 +19,19 @@ export const LoginPage = () => {
     try {
       await login(email, password);
     } catch (err) {
-      console.error(err);
-      if (err.message?.includes('Invalid login credentials')) {
-        setErrorMsg('E-mail ou senha incorretos. Verifique os dados cadastrados no Supabase.');
+      console.error('Erro de autenticação:', err);
+      const msg = (err?.message || '').toLowerCase();
+      if (
+        msg.includes('invalid') ||
+        msg.includes('credential') ||
+        msg.includes('grant') ||
+        msg.includes('password') ||
+        msg.includes('email') ||
+        msg.includes('user not found')
+      ) {
+        setErrorMsg('E-mail ou senha incorretos. Por favor, tente novamente.');
       } else {
-        setErrorMsg('Falha ao autenticar: ' + (err.message || 'Erro inesperado'));
+        setErrorMsg('Não foi possível entrar no sistema. Verifique seus dados e tente novamente.');
       }
     } finally {
       setIsLoading(false);
@@ -31,7 +39,7 @@ export const LoginPage = () => {
   };
 
   return (
-    <div style={{
+    <div className="login-page-wrap" style={{
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
@@ -41,7 +49,7 @@ export const LoginPage = () => {
       position: 'relative',
       background: 'radial-gradient(ellipse at 50% 15%, #eff6ff 0%, #f8fafc 60%, #e2e8f0 100%)'
     }}>
-      <div style={{
+      <div className="login-card" style={{
         width: '100%',
         maxWidth: '420px',
         background: '#ffffff',
@@ -53,7 +61,7 @@ export const LoginPage = () => {
         {/* Header com Logo */}
         <div style={{ textAlign: 'center', marginBottom: '26px' }}>
           <h1 style={{ margin: '0 0 10px 0' }}>
-            <img src={logo} alt="Gerencie Sistemas" style={{ width: '230px', height: 'auto', display: 'block', margin: '0 auto' }} />
+            <img src={logo} alt="Gerencie Sistemas" style={{ maxWidth: '230px', width: '100%', height: 'auto', display: 'block', margin: '0 auto' }} />
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: 0 }}>
             Acesse o sistema da sua empresa

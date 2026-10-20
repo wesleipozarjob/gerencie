@@ -154,7 +154,7 @@ export const ClientsPage = ({ selectedClientForModal, onCloseModal, onOpenNewSal
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Barra de Ações do Topo */}
-      <div style={{
+      <div className="page-top-bar" style={{
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
@@ -184,7 +184,7 @@ export const ClientsPage = ({ selectedClientForModal, onCloseModal, onOpenNewSal
         </div>
 
         {/* Busca e Botão de Cadastro */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end', minWidth: '280px' }}>
+        <div className="page-top-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
           <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
@@ -656,7 +656,7 @@ export const ClientsPage = ({ selectedClientForModal, onCloseModal, onOpenNewSal
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">Telefone / WhatsApp</label>
                     <input

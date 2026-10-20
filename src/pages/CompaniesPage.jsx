@@ -244,9 +244,9 @@ export const CompaniesPage = () => {
       </div>
 
       {/* Company Cards Grid */}
-      <div style={{
+      <div className="companies-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
         gap: '20px'
       }}>
         {filteredCompanies.map(comp => {
@@ -601,7 +601,7 @@ export const CompaniesPage = () => {
               <div className="form-group">
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>E-mail de Login da Empresa</span>
-                  <span style={{ fontSize: '0.74rem', color: 'var(--primary)', fontWeight: 600 }}>Login no Supabase</span>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--primary)', fontWeight: 600 }}>Acesso do Sistema</span>
                 </label>
                 <input
                   type="email"

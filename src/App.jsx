@@ -18,29 +18,18 @@ function MasterLayout() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-main)', display: 'flex', flexDirection: 'column' }}>
-      <header style={{
-        height: '68px',
-        background: '#ffffff',
-        borderBottom: '1px solid var(--border-subtle)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 32px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 30
-      }}>
-        <img src={logo} alt="Gerencie Sistemas" style={{ height: '50px', width: 'auto', display: 'block' }} />
+      <header className="master-layout-header">
+        <img src={logo} alt="Gerencie Sistemas" className="master-layout-logo" />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>{user?.email}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span className="master-layout-email" style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>{user?.email}</span>
           <button onClick={logout} className="btn btn-secondary btn-icon" title="Sair">
             <LogOut size={16} color="var(--text-muted)" />
           </button>
         </div>
       </header>
 
-      <main style={{ maxWidth: '1180px', width: '100%', margin: '0 auto', padding: '32px', flex: 1 }}>
+      <main className="master-layout-main">
         <CompaniesPage />
       </main>
 
@@ -83,7 +72,7 @@ function NoCompanyScreen() {
       padding: '24px',
       background: 'radial-gradient(ellipse at 50% 15%, #eff6ff 0%, #f8fafc 60%, #e2e8f0 100%)'
     }}>
-      <div style={{
+      <div className="no-company-card" style={{
         width: '100%',
         maxWidth: '480px',
         background: '#ffffff',
@@ -93,7 +82,7 @@ function NoCompanyScreen() {
         textAlign: 'center',
         boxShadow: '0 20px 40px -15px rgba(15, 23, 42, 0.1)'
       }}>
-        <img src={logo} alt="Gerencie Sistemas" style={{ width: '210px', height: 'auto', display: 'block', margin: '0 auto 20px' }} />
+        <img src={logo} alt="Gerencie Sistemas" style={{ maxWidth: '210px', width: '100%', height: 'auto', display: 'block', margin: '0 auto 20px' }} />
         
         <div style={{
           width: '56px',

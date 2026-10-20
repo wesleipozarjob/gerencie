@@ -63,9 +63,9 @@ export const Dashboard = ({ setActiveTab, onOpenNewSale, onOpenNewClient, onOpen
       </div>
 
       {/* Grid de 4 Cards de Métricas Principais */}
-      <div style={{
+      <div className="stats-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
         gap: '20px'
       }}>
         {/* Card 1: Faturamento Mês */}
@@ -190,9 +190,9 @@ export const Dashboard = ({ setActiveTab, onOpenNewSale, onOpenNewClient, onOpen
       </div>
 
       {/* Grid de 2 Colunas: Clientes Devedores vs Alertas de Estoque */}
-      <div style={{
+      <div className="dashboard-columns-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
         gap: '24px'
       }}>
         {/* Coluna 1: Clientes com Contas / Débitos em Aberto */}

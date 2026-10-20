@@ -64,7 +64,7 @@ export const SalesPage = ({ onOpenNewSale }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Barra de Filtros e Lançamento */}
-      <div style={{
+      <div className="page-top-bar" style={{
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
@@ -100,7 +100,7 @@ export const SalesPage = ({ onOpenNewSale }) => {
         </div>
 
         {/* Busca e Botão Novo Lançamento */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end', minWidth: '280px' }}>
+        <div className="page-top-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
           <div style={{ position: 'relative', width: '100%', maxWidth: '280px' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             <input

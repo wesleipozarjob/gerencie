@@ -17,36 +17,23 @@ export const Navbar = ({ activeTab, setMobileOpen }) => {
   };
 
   return (
-    <header style={{
-      height: '68px',
-      background: 'var(--bg-header)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      borderBottom: '1px solid var(--border-subtle)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 28px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 30,
-      boxShadow: 'var(--shadow-xs)'
-    }}>
+    <header className="navbar-header">
       {/* Esquerda: Menu hambúrguer (mobile) + Título da tela */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="navbar-brand-section" style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
         <button
-          className="btn btn-secondary btn-icon"
-          style={{ display: 'none' }}
+          className="btn btn-secondary btn-icon mobile-menu-toggle"
           id="mobile-menu-btn"
           onClick={() => setMobileOpen(prev => !prev)}
+          title="Abrir navegação"
+          aria-label="Abrir menu"
         >
-          <Menu size={18} />
+          <Menu size={19} />
         </button>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+          <h2 className="navbar-title">
             {getPageTitle()}
           </h2>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="navbar-company-subtitle" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             {currentCompany?.logo ? (
               <img 
                 src={currentCompany.logo} 
@@ -56,41 +43,47 @@ export const Navbar = ({ activeTab, setMobileOpen }) => {
             ) : (
               <Building2 size={13} color="var(--primary)" />
             )}
-            <span>{currentCompany?.trade_name || currentCompany?.name || 'Minha Empresa'}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {currentCompany?.trade_name || currentCompany?.name || 'Minha Empresa'}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Direita: Perfil do Usuário & Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Status Conectado Supabase */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
-          borderRadius: 'var(--radius-full)',
-          background: isSupabaseConnected ? 'var(--success-light)' : 'var(--bg-subtle)',
-          border: `1px solid ${isSupabaseConnected ? 'var(--success-border)' : 'var(--border-subtle)'}`,
-          fontSize: '0.74rem',
-          fontWeight: 600,
-          color: isSupabaseConnected ? 'var(--success-text)' : 'var(--text-muted)'
-        }}>
+      <div className="navbar-right-section" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Status Conectado Nuvem */}
+        <div 
+          className="navbar-cloud-badge"
+          title={isSupabaseConnected ? 'Conexão ativa com o banco em nuvem' : 'Operando em modo local'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: 'var(--radius-full)',
+            background: isSupabaseConnected ? 'var(--success-light)' : 'var(--bg-subtle)',
+            border: `1px solid ${isSupabaseConnected ? 'var(--success-border)' : 'var(--border-subtle)'}`,
+            fontSize: '0.74rem',
+            fontWeight: 600,
+            color: isSupabaseConnected ? 'var(--success-text)' : 'var(--text-muted)'
+          }}
+        >
           <div style={{
             width: '7px',
             height: '7px',
             borderRadius: '50%',
             background: isSupabaseConnected ? 'var(--success)' : '#94a3b8'
           }} />
-          <span>{isSupabaseConnected ? 'Nuvem Conectada' : 'Modo Offline'}</span>
+          <span className="navbar-cloud-text">{isSupabaseConnected ? 'Nuvem Conectada' : 'Modo Offline'}</span>
         </div>
 
         {/* Perfil & Logout */}
-        <div style={{
+        <div className="navbar-user-profile" style={{
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          paddingLeft: '12px',
+          paddingLeft: '10px',
           borderLeft: '1px solid var(--border-subtle)'
         }}>
           <div style={{
@@ -106,14 +99,15 @@ export const Navbar = ({ activeTab, setMobileOpen }) => {
             color: '#fff',
             fontWeight: 700,
             fontSize: '0.82rem',
-            boxShadow: 'var(--shadow-xs)'
+            boxShadow: 'var(--shadow-xs)',
+            flexShrink: 0
           }}>
             {user?.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="navbar-user-text" style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.2 }}>
+              <span className="navbar-user-name" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.2 }}>
                 {user?.name || 'Usuário'}
               </span>
               {isMasterAdmin && (
@@ -130,7 +124,7 @@ export const Navbar = ({ activeTab, setMobileOpen }) => {
                 </span>
               )}
             </div>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            <span className="navbar-user-email" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               {user?.email || ''}
             </span>
           </div>
@@ -139,7 +133,7 @@ export const Navbar = ({ activeTab, setMobileOpen }) => {
             onClick={logout}
             className="btn btn-secondary btn-icon"
             title="Sair do sistema"
-            style={{ marginLeft: '6px' }}
+            style={{ marginLeft: '4px' }}
           >
             <LogOut size={16} color="var(--text-muted)" />
           </button>

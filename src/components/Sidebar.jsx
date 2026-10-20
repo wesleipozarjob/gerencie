@@ -5,7 +5,8 @@ import {
   Package, 
   ShoppingCart, 
   PlusCircle,
-  Building2
+  Building2,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -38,87 +39,81 @@ export const Sidebar = ({ activeTab, setActiveTab, onOpenNewSale, mobileOpen, se
       {/* Overlay Mobile */}
       {mobileOpen && (
         <div 
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.4)',
-            zIndex: 40,
-            backdropFilter: 'blur(3px)'
-          }}
+          className="sidebar-overlay"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      <aside style={{
-        width: 'var(--sidebar-width)',
-        background: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        zIndex: 50,
-        transition: 'transform 0.3s ease',
-        transform: mobileOpen ? 'translateX(0)' : undefined,
-        boxShadow: 'var(--shadow-xs)'
-      }}>
+      <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         {/* Brand Header com a Empresa do Usuário e Foto */}
         <div style={{
-          padding: '20px',
+          padding: '18px 20px',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: '12px'
         }}>
-          {currentCompany?.logo ? (
-            <img 
-              src={currentCompany.logo} 
-              alt={currentCompany.trade_name || currentCompany.name}
-              style={{
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+            {currentCompany?.logo ? (
+              <img 
+                src={currentCompany.logo} 
+                alt={currentCompany.trade_name || currentCompany.name}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  objectFit: 'contain',
+                  background: '#ffffff',
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: 'var(--shadow-xs)',
+                  flexShrink: 0
+                }}
+              />
+            ) : (
+              <div style={{
                 width: '42px',
                 height: '42px',
                 borderRadius: '10px',
-                objectFit: 'contain',
-                background: '#ffffff',
-                border: '1px solid var(--border-subtle)',
-                boxShadow: 'var(--shadow-xs)',
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)',
                 flexShrink: 0
-              }}
-            />
-          ) : (
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)',
-              flexShrink: 0
-            }}>
-              <Building2 size={22} color="#ffffff" />
-            </div>
-          )}
+              }}>
+                <Building2 size={22} color="#ffffff" />
+              </div>
+            )}
 
-          <div style={{ minWidth: 0, overflow: 'hidden' }}>
-            <div style={{ 
-              fontSize: '1.02rem', 
-              fontWeight: 800, 
-              letterSpacing: '-0.02em', 
-              color: 'var(--text-main)',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              overflow: 'hidden'
-            }}>
-              {currentCompany?.trade_name || currentCompany?.name || 'Gerencie'}
-            </div>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              Gestão de Clientes & Estoque
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ 
+                fontSize: '1.02rem', 
+                fontWeight: 800, 
+                letterSpacing: '-0.02em', 
+                color: 'var(--text-main)',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                overflow: 'hidden'
+              }}>
+                {currentCompany?.trade_name || currentCompany?.name || 'Gerencie'}
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Gestão de Clientes & Estoque
+              </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-icon sidebar-close-btn"
+            onClick={() => setMobileOpen(false)}
+            title="Fechar menu"
+          >
+            <X size={16} />
+          </button>
         </div>
+
 
         {/* Action Button: Lançar Venda */}
         <div style={{ padding: '16px 20px 8px' }}>

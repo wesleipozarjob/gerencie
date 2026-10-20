@@ -139,7 +139,7 @@ export const StockPage = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Abas Superiores: Estoque Atual vs Histórico de Movimentações */}
-      <div style={{
+      <div className="page-top-bar" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -171,7 +171,7 @@ export const StockPage = () => {
       {activeTab === 'inventory' ? (
         <>
           {/* Barra de Filtros e Busca */}
-          <div style={{
+          <div className="page-filters-bar" style={{
             display: 'flex',
             flexWrap: 'wrap',
             alignItems: 'center',
@@ -443,7 +443,7 @@ export const StockPage = () => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">Código / SKU</label>
                     <input
@@ -466,7 +466,7 @@ export const StockPage = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">Preço de Custo (R$)</label>
                     <input
@@ -492,7 +492,7 @@ export const StockPage = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div className="form-grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
                     <label className="form-label">Quantidade Inicial</label>
                     <input

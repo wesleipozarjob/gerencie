@@ -159,7 +159,7 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Linha 1: Cliente & Data */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '12px' }}>
+            <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '12px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Cliente *</label>
                 <select
@@ -299,7 +299,7 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
               </div>
 
               {/* Status do Pagamento (Pago vs Fiado / Devendo) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <div className="payment-type-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -364,7 +364,7 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
             </div>
 
             {/* Forma de Pagamento e Observações */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Forma de Pagamento</label>
                 <select

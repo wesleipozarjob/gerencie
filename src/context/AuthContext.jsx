@@ -180,7 +180,7 @@ export const AuthProvider = ({ children }) => {
     const { isConfigured } = getSupabaseConfig();
 
     if (!isConfigured || !supabase) {
-      throw new Error('Não foi possível conectar ao Supabase. Verifique sua conexão com a internet.');
+      throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão com a internet.');
     }
 
     // Autenticação Real no Supabase
