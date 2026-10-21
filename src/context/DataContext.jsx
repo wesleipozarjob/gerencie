@@ -405,13 +405,17 @@ export const DataProvider = ({ children }) => {
       payment_method: payment_method || 'a_prazo',
       notes: notes || '',
       sale_date: sale_date || new Date().toISOString().split('T')[0],
-      items: items.map(item => ({
-        product_id: item.product_id || null,
-        product_name: item.product_name,
-        quantity: Number(item.quantity) || 1,
-        unit_price: Number(item.unit_price) || 0,
-        subtotal: (Number(item.quantity) || 1) * (Number(item.unit_price) || 0)
-      })),
+      items: items.map(item => {
+        const qty = Number(item.quantity) || 1;
+        const sub = item.subtotal !== undefined ? Number(item.subtotal) : (qty * (Number(item.unit_price) || 0));
+        return {
+          product_id: item.product_id || null,
+          product_name: item.display_name || item.product_name,
+          quantity: qty,
+          unit_price: qty > 0 ? (sub / qty) : (Number(item.unit_price) || 0),
+          subtotal: sub
+        };
+      }),
       created_at: new Date().toISOString()
     };
 

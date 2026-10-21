@@ -3,6 +3,105 @@ import { ShoppingCart, Plus, Trash2, X, CheckCircle, User, Package, Calendar } f
 import confetti from 'canvas-confetti';
 import { useData } from '../context/DataContext';
 
+// Helper de precificação automática por atacado (caixa/pacote) e varejo (unidades avulsas)
+export const calculateProductSalePricing = (prod, quantityInput) => {
+  if (!prod) {
+    return {
+      quantity: 0,
+      subtotal: 0,
+      unitPrice: 0,
+      breakdown: '',
+      detailedCalculation: '',
+      displayName: '',
+      fullPkgs: 0,
+      remUnits: 0,
+      discount: 0,
+      isPkg: false
+    };
+  }
+
+  const rawQty = Math.max(1, parseInt(quantityInput, 10) || 1);
+  const pkgUnits = Number(prod.package_units) || 1;
+  const unitPrice = Number(prod.sale_price) || 0;
+  const hasPkgConfig = (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1) &&
+                       Number(prod.package_price) > 0 &&
+                       pkgUnits > 1;
+
+  const pkgPrice = hasPkgConfig ? Number(prod.package_price) : (unitPrice * pkgUnits);
+  const pkgNameSingular = prod.unit === 'cx' ? 'caixa' : 'pacote';
+  const pkgNamePlural = prod.unit === 'cx' ? 'caixas' : 'pacotes';
+  const pkgAbbr = prod.unit === 'cx' ? 'cx' : 'pct';
+
+  if (!hasPkgConfig) {
+    const subtotal = rawQty * unitPrice;
+    return {
+      quantity: rawQty,
+      subtotal,
+      unitPrice,
+      breakdown: `${rawQty} un avulsa${rawQty > 1 ? 's' : ''}`,
+      detailedCalculation: `${rawQty} un × R$ ${unitPrice.toFixed(2)}`,
+      displayName: `${prod.name} (${rawQty} un)`,
+      fullPkgs: 0,
+      remUnits: rawQty,
+      discount: 0,
+      isPkg: false,
+      pkgUnits: 1,
+      pkgPrice: 0,
+      unitPriceAvulsa: unitPrice,
+      pkgAbbr: 'un'
+    };
+  }
+
+  const fullPkgs = Math.floor(rawQty / pkgUnits);
+  const remUnits = rawQty % pkgUnits;
+  const subtotal = (fullPkgs * pkgPrice) + (remUnits * unitPrice);
+  const effectiveAverageUnitPrice = rawQty > 0 ? (subtotal / rawQty) : unitPrice;
+
+  let breakdown = '';
+  let detailedCalculation = '';
+  let displayName = '';
+
+  if (fullPkgs > 0 && remUnits > 0) {
+    const pWord = fullPkgs === 1 ? `1 ${pkgNameSingular}` : `${fullPkgs} ${pkgNamePlural}`;
+    const uWord = remUnits === 1 ? '1 unidade' : `${remUnits} unidades`;
+    breakdown = `${pWord} e ${uWord}`;
+    detailedCalculation = `${pWord} (R$ ${(fullPkgs * pkgPrice).toFixed(2)}) + ${uWord} (R$ ${(remUnits * unitPrice).toFixed(2)})`;
+    displayName = `${prod.name} (${pWord} e ${uWord} - ${rawQty} un)`;
+  } else if (fullPkgs > 0 && remUnits === 0) {
+    const pWord = fullPkgs === 1 ? `1 ${pkgNameSingular}` : `${fullPkgs} ${pkgNamePlural}`;
+    breakdown = pWord;
+    detailedCalculation = `${pWord} (R$ ${pkgPrice.toFixed(2)} cada)`;
+    displayName = `${prod.name} (${pWord} - ${rawQty} un)`;
+  } else {
+    const uWord = remUnits === 1 ? '1 unidade avulsa' : `${remUnits} unidades avulsas`;
+    breakdown = uWord;
+    detailedCalculation = `${remUnits} un × R$ ${unitPrice.toFixed(2)}`;
+    displayName = `${prod.name} (${uWord})`;
+  }
+
+  const normalCostWithoutDiscount = rawQty * unitPrice;
+  const discount = Math.max(0, normalCostWithoutDiscount - subtotal);
+
+  return {
+    quantity: rawQty,
+    subtotal,
+    unitPrice: effectiveAverageUnitPrice,
+    breakdown,
+    detailedCalculation,
+    displayName,
+    fullPkgs,
+    remUnits,
+    discount,
+    isPkg: true,
+    pkgUnits,
+    pkgPrice,
+    unitPriceAvulsa: unitPrice,
+    pkgNameSingular,
+    pkgNamePlural,
+    pkgAbbr
+  };
+};
+
 export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
   const { customers, products, addSale } = useData();
 
@@ -17,7 +116,6 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
   const [items, setItems] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [itemQuantity, setItemQuantity] = useState('1');
-  const [sellUnitType, setSellUnitType] = useState('un'); // 'un' ou 'pct'
 
   useEffect(() => {
     if (isOpen) {
@@ -25,7 +123,6 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
       setItems([]);
       setSelectedProductId('');
       setItemQuantity('1');
-      setSellUnitType('un');
       setNotes('');
       setPaidInput('0');
       setPaymentType('devendo');
@@ -41,42 +138,22 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
     const prod = products.find(p => p.id === selectedProductId);
     if (!prod) return;
 
-    const rawQty = Number(itemQuantity) || 1;
-    const pkgUnits = Number(prod.package_units) || 1;
-    const isSellingByPackage = sellUnitType === 'pct' && pkgUnits > 1;
-
-    let effectiveQuantity;
-    let unitPrice;
-    let subtotal;
-    let displayName;
-
-    if (isSellingByPackage) {
-      const packagePrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
-      effectiveQuantity = rawQty * pkgUnits;
-      subtotal = rawQty * packagePrice;
-      unitPrice = packagePrice / pkgUnits;
-      displayName = `${prod.name} (${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} c/ ${pkgUnits} un = ${effectiveQuantity} un)`;
-    } else {
-      effectiveQuantity = rawQty;
-      unitPrice = Number(prod.sale_price) || 0;
-      subtotal = effectiveQuantity * unitPrice;
-      displayName = `${prod.name} (${effectiveQuantity} un avulsa)`;
-    }
+    const calc = calculateProductSalePricing(prod, itemQuantity);
 
     const newItem = {
       product_id: prod.id,
       product_name: prod.name,
-      display_name: displayName,
-      quantity: effectiveQuantity,
-      unit_price: unitPrice,
-      subtotal,
+      display_name: calc.displayName,
+      breakdown: calc.breakdown,
+      quantity: calc.quantity,
+      unit_price: calc.unitPrice,
+      subtotal: calc.subtotal,
       unit: prod.unit
     };
 
     setItems([...items, newItem]);
     setSelectedProductId('');
     setItemQuantity('1');
-    setSellUnitType('un');
   };
 
   // Remover item
@@ -105,35 +182,15 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
     if (selectedProductId) {
       const prod = products.find(p => p.id === selectedProductId);
       if (prod) {
-        const rawQty = Number(itemQuantity) || 1;
-        const pkgUnits = Number(prod.package_units) || 1;
-        const isSellingByPackage = sellUnitType === 'pct' && pkgUnits > 1;
-
-        let effectiveQuantity;
-        let unitPrice;
-        let subtotal;
-        let displayName;
-
-        if (isSellingByPackage) {
-          const packagePrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
-          effectiveQuantity = rawQty * pkgUnits;
-          subtotal = rawQty * packagePrice;
-          unitPrice = packagePrice / pkgUnits;
-          displayName = `${prod.name} (${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} c/ ${pkgUnits} un = ${effectiveQuantity} un)`;
-        } else {
-          effectiveQuantity = rawQty;
-          unitPrice = Number(prod.sale_price) || 0;
-          subtotal = effectiveQuantity * unitPrice;
-          displayName = `${prod.name} (${effectiveQuantity} un avulsa)`;
-        }
-
+        const calc = calculateProductSalePricing(prod, itemQuantity);
         finalItems.push({
           product_id: prod.id,
           product_name: prod.name,
-          display_name: displayName,
-          quantity: effectiveQuantity,
-          unit_price: unitPrice,
-          subtotal,
+          display_name: calc.displayName,
+          breakdown: calc.breakdown,
+          quantity: calc.quantity,
+          unit_price: calc.unitPrice,
+          subtotal: calc.subtotal,
           unit: prod.unit
         });
       }
@@ -246,174 +303,201 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
                 Adicionar Produtos à Compra
               </div>
 
-              {/* Seletor de Modo de Venda (se o produto for pacote / caixa) */}
+              {/* Seleção do Produto, Quantidade e Atalhos Rápidos */}
               {(() => {
                 const prod = products.find(p => p.id === selectedProductId);
                 const pkgUnits = Number(prod?.package_units) || 1;
-                const isPkg = prod && (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1);
-
-                if (!isPkg || pkgUnits <= 1) return null;
-
-                const pkgPrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
-                const unitPrice = Number(prod.sale_price) || 0;
+                const hasPkg = prod && (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1) && Number(prod.package_price) > 0 && pkgUnits > 1;
+                const pkgAbbr = prod?.unit === 'cx' ? 'cx' : 'pct';
+                const calc = calculateProductSalePricing(prod, itemQuantity);
 
                 return (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    background: '#ffffff',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--primary-border)',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary-text)' }}>
-                      📦 Forma de Venda:
-                    </span>
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 2, minWidth: '220px' }}>
+                        <label className="form-label" style={{ marginBottom: '4px', fontSize: '0.78rem' }}>
+                          Produto do Estoque
+                        </label>
+                        <select
+                          className="form-control"
+                          value={selectedProductId}
+                          onChange={(e) => {
+                            setSelectedProductId(e.target.value);
+                            setItemQuantity('1');
+                          }}
+                        >
+                          <option value="">Selecione o produto do estoque...</option>
+                          {products.map(p => {
+                            const pUnits = Number(p.package_units) || 1;
+                            const totU = Number(p.stock_quantity) || 0;
+                            const fullP = Math.floor(totU / pUnits);
+                            const remU = totU % pUnits;
+
+                            const dispInfo = pUnits > 1
+                              ? `${totU} un (${fullP} ${p.unit === 'cx' ? 'cx' : 'pct'}${remU > 0 ? ` e ${remU} un` : ''})`
+                              : `${totU} ${p.unit}`;
+
+                            const priceInfo = (pUnits > 1 && p.package_price)
+                              ? `R$ ${Number(p.sale_price).toFixed(2)}/un (Cx: R$ ${Number(p.package_price).toFixed(2)})`
+                              : `R$ ${Number(p.sale_price).toFixed(2)}/un`;
+
+                            return (
+                              <option key={p.id} value={p.id}>
+                                {p.name} - {priceInfo} • disp: {dispInfo}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div style={{ width: '130px' }}>
+                        <label className="form-label" style={{ marginBottom: '4px', fontSize: '0.78rem' }}>
+                          Qtd (Unidades)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="form-control"
+                          placeholder="Ex: 13 ou 24"
+                          value={itemQuantity}
+                          onChange={(e) => setItemQuantity(e.target.value)}
+                        />
+                      </div>
+
                       <button
                         type="button"
-                        className="btn btn-sm"
-                        style={{
-                          padding: '5px 12px',
-                          fontSize: '0.8rem',
-                          background: sellUnitType === 'un' ? 'var(--primary)' : '#ffffff',
-                          border: `1px solid ${sellUnitType === 'un' ? 'var(--primary)' : 'var(--border-subtle)'}`,
-                          color: sellUnitType === 'un' ? '#ffffff' : 'var(--text-main)',
-                          fontWeight: sellUnitType === 'un' ? 700 : 500,
-                          borderRadius: '6px'
-                        }}
-                        onClick={() => setSellUnitType('un')}
+                        className="btn btn-secondary"
+                        onClick={handleAddItem}
+                        disabled={!selectedProductId}
                       >
-                        ✓ Unidade Avulsa (R$ {unitPrice.toFixed(2)})
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{
-                          padding: '5px 12px',
-                          fontSize: '0.8rem',
-                          background: sellUnitType === 'pct' ? 'var(--primary)' : '#ffffff',
-                          border: `1px solid ${sellUnitType === 'pct' ? 'var(--primary)' : 'var(--border-subtle)'}`,
-                          color: sellUnitType === 'pct' ? '#ffffff' : 'var(--text-main)',
-                          fontWeight: sellUnitType === 'pct' ? 700 : 500,
-                          borderRadius: '6px'
-                        }}
-                        onClick={() => setSellUnitType('pct')}
-                      >
-                        {prod.unit === 'cx' ? 'Caixa Fechada' : 'Pacote Fechado'} (R$ {pkgPrice.toFixed(2)})
+                        <Plus size={15} /> Adicionar
                       </button>
                     </div>
-                  </div>
-                );
-              })()}
 
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ flex: 2, minWidth: '200px' }}>
-                  <select
-                    className="form-control"
-                    value={selectedProductId}
-                    onChange={(e) => {
-                      setSelectedProductId(e.target.value);
-                      setSellUnitType('un'); // Sempre inicia como Unidade por padrão
-                      setItemQuantity('1');
-                    }}
-                  >
-                    <option value="">Selecione o produto do estoque...</option>
-                    {products.map(p => {
-                      const pUnits = Number(p.package_units) || 1;
-                      const totU = Number(p.stock_quantity) || 0;
-                      const fullP = Math.floor(totU / pUnits);
-                      const remU = totU % pUnits;
+                    {/* Atalhos Rápidos para adicionar Caixas ou Unidades (quando o produto tem pacote/caixa) */}
+                    {hasPkg && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap',
+                        padding: '6px 10px',
+                        background: '#ffffff',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.76rem'
+                      }}>
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                          ⚡ Atalhos rápidos:
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            background: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '4px'
+                          }}
+                          onClick={() => {
+                            const cur = parseInt(itemQuantity, 10) || 0;
+                            setItemQuantity((cur + pkgUnits).toString());
+                          }}
+                        >
+                          +1 {pkgAbbr} (+{pkgUnits} un)
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            background: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '4px'
+                          }}
+                          onClick={() => {
+                            const cur = parseInt(itemQuantity, 10) || 0;
+                            setItemQuantity((cur + (pkgUnits * 2)).toString());
+                          }}
+                        >
+                          +2 {pkgAbbr}s (+{pkgUnits * 2} un)
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            background: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '4px'
+                          }}
+                          onClick={() => {
+                            const cur = parseInt(itemQuantity, 10) || 0;
+                            setItemQuantity((cur + 1).toString());
+                          }}
+                        >
+                          +1 un
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.75rem',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            color: 'var(--text-muted)',
+                            borderRadius: '4px'
+                          }}
+                          onClick={() => setItemQuantity('1')}
+                        >
+                          Zerar p/ 1 un
+                        </button>
+                      </div>
+                    )}
 
-                      const dispInfo = pUnits > 1
-                        ? `${totU} un (${fullP} ${p.unit === 'cx' ? 'cx' : 'pct'}${remU > 0 ? ` e ${remU} un` : ''})`
-                        : `${totU} ${p.unit}`;
+                    {/* Preview Dinâmico do Cálculo Automático (Unidades + Caixas Fechadas) */}
+                    {prod && itemQuantity && Number(itemQuantity) > 0 && (
+                      <div style={{
+                        background: hasPkg ? 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)' : '#ffffff',
+                        border: `1px solid ${hasPkg ? '#86efac' : 'var(--border-subtle)'}`,
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '10px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '1.1rem' }}>{hasPkg ? '📦' : '🥛'}</span>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 700, color: hasPkg ? '#15803d' : 'var(--text-main)' }}>
+                              {calc.breakdown}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                              ({calc.quantity} {calc.quantity === 1 ? 'unidade' : 'unidades'} totais)
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                            R$ {calc.subtotal.toFixed(2)}
+                          </div>
+                        </div>
 
-                      const priceInfo = (pUnits > 1 && p.package_price)
-                        ? `R$ ${Number(p.sale_price).toFixed(2)}/un (Pct: R$ ${Number(p.package_price).toFixed(2)})`
-                        : `R$ ${Number(p.sale_price).toFixed(2)}/un`;
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          💡 <strong>Cálculo:</strong> {calc.detailedCalculation}
+                        </div>
 
-                      return (
-                        <option key={p.id} value={p.id}>
-                          {p.name} - {priceInfo} • disp: {dispInfo}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                <div style={{ width: '120px' }}>
-                  {(() => {
-                    const prod = products.find(p => p.id === selectedProductId);
-                    const pkgUnits = Number(prod?.package_units) || 1;
-                    const isPkg = prod && (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1);
-
-                    return (
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        className="form-control"
-                        placeholder={isPkg && sellUnitType === 'pct' ? 'Qtd Pcts' : 'Qtd Un'}
-                        value={itemQuantity}
-                        onChange={(e) => setItemQuantity(e.target.value)}
-                      />
-                    );
-                  })()}
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleAddItem}
-                >
-                  <Plus size={15} /> Adicionar
-                </button>
-              </div>
-
-              {/* Dica da quantidade total e valor da venda */}
-              {(() => {
-                const prod = products.find(p => p.id === selectedProductId);
-                const pkgUnits = Number(prod?.package_units) || 1;
-                const isPkg = prod && (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1);
-
-                if (!prod || !itemQuantity || Number(itemQuantity) <= 0) return null;
-
-                if (isPkg && sellUnitType === 'pct') {
-                  const packagePrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
-                  const totalUnits = Number(itemQuantity) * pkgUnits;
-                  const totalCost = Number(itemQuantity) * packagePrice;
-
-                  return (
-                    <div style={{
-                      fontSize: '0.8rem',
-                      color: 'var(--primary-text)',
-                      fontWeight: 600,
-                      padding: '8px 12px',
-                      background: 'var(--primary-light)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--primary-border)'
-                    }}>
-                      📦 Vendendo <strong>{itemQuantity} {prod.unit === 'cx' ? 'caixas' : 'pacotes'}</strong> fechados (total <strong>{totalUnits} unidades</strong> saindo do estoque). Total: <strong>R$ {totalCost.toFixed(2)}</strong> (R$ {packagePrice.toFixed(2)} por {prod.unit === 'cx' ? 'caixa' : 'pacote'}).
-                    </div>
-                  );
-                }
-
-                const totalCost = Number(itemQuantity) * Number(prod.sale_price);
-                return (
-                  <div style={{
-                    fontSize: '0.8rem',
-                    color: 'var(--text-main)',
-                    fontWeight: 500,
-                    padding: '8px 12px',
-                    background: '#ffffff',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-subtle)'
-                  }}>
-                    🥛 Vendendo <strong>{itemQuantity} unidades avulsas</strong>. Total: <strong>R$ {totalCost.toFixed(2)}</strong> (R$ {Number(prod.sale_price).toFixed(2)} por lata/unidade).
+                        {calc.discount > 0 && (
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--success-text)', marginTop: '2px' }}>
+                            🎉 Desconto de R$ {calc.discount.toFixed(2)} aplicado automaticamente pelo preço de pacote/caixa fechada!
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
