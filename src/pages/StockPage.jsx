@@ -44,6 +44,7 @@ export const StockPage = () => {
     category: '',
     cost_price: '',
     sale_price: '',
+    package_price: '',
     stock_quantity: '',
     min_stock: '',
     unit: 'un',
@@ -87,6 +88,7 @@ export const StockPage = () => {
       category: '',
       cost_price: '',
       sale_price: '',
+      package_price: '',
       stock_quantity: '0',
       min_stock: '5',
       unit: 'un',
@@ -104,6 +106,9 @@ export const StockPage = () => {
     const currentTotalUnits = Number(prod.stock_quantity) || 0;
     const pkgCount = pkgUnits > 1 ? Math.floor(currentTotalUnits / pkgUnits).toString() : '';
     const looseUnits = pkgUnits > 1 ? (currentTotalUnits % pkgUnits).toString() : '';
+    const pkgPrice = prod.package_price !== undefined && prod.package_price !== null 
+      ? prod.package_price.toString() 
+      : (prod.sale_price && pkgUnits > 1 ? (Number(prod.sale_price) * pkgUnits).toFixed(2) : '');
 
     setFormData({
       name: prod.name || '',
@@ -111,6 +116,7 @@ export const StockPage = () => {
       category: prod.category || '',
       cost_price: prod.cost_price || '',
       sale_price: prod.sale_price || '',
+      package_price: pkgPrice,
       stock_quantity: prod.stock_quantity || '0',
       min_stock: prod.min_stock || '5',
       unit: prod.unit || 'un',
@@ -139,6 +145,7 @@ export const StockPage = () => {
     const payload = {
       ...formData,
       package_units: pkgUnits,
+      package_price: isPkg && formData.package_price !== '' ? Number(formData.package_price) : null,
       stock_quantity: calculatedStock
     };
 
@@ -322,7 +329,12 @@ export const StockPage = () => {
                           </td>
 
                           <td style={{ fontWeight: 700, color: 'var(--text-main)' }}>
-                            {formatMoney(prod.sale_price)}
+                            <div>{formatMoney(prod.sale_price)} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>/un</span></div>
+                            {(prod.unit === 'pct' || prod.unit === 'cx' || Number(prod.package_units) > 1) && prod.package_price && (
+                              <div style={{ fontSize: '0.74rem', color: 'var(--primary-text)', fontWeight: 600, marginTop: '2px' }}>
+                                📦 {prod.unit === 'cx' ? 'Cx' : 'Pct'}: {formatMoney(prod.package_price)}
+                              </div>
+                            )}
                           </td>
 
                           {/* Quantidade em Estoque */}
@@ -724,36 +736,97 @@ export const StockPage = () => {
                   </div>
                 )}
 
-                {/* Preços */}
-                <div className="form-grid-2">
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Preço de Custo da Unidade (R$)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      placeholder="0.00"
-                      value={formData.cost_price}
-                      onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Preço de Venda da Unidade (R$) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      placeholder="0.00"
-                      value={formData.sale_price}
-                      onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
-                      required
-                    />
-                    {(formData.unit === 'pct' || formData.unit === 'cx') && Number(formData.package_units) > 1 && Number(formData.sale_price) > 0 && (
-                      <div style={{ fontSize: '0.74rem', color: 'var(--primary-text)', fontWeight: 600, marginTop: '3px' }}>
-                        💰 Pacote completo sai por: R$ {(Number(formData.sale_price) * Number(formData.package_units)).toFixed(2)}
+                {/* Preços de Venda e Custo */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="form-grid-2">
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">
+                        Preço de Custo {formData.unit === 'pct' || formData.unit === 'cx' ? 'da Unidade' : ''} (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        placeholder="0.00"
+                        value={formData.cost_price}
+                        onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                        Preço da UNIDADE Avulsa (R$) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        placeholder="Ex: 4.50"
+                        value={formData.sale_price}
+                        onChange={(e) => {
+                          const unitPrice = e.target.value;
+                          setFormData(prev => {
+                            const isPkg = prev.unit === 'pct' || prev.unit === 'cx';
+                            const pkgUnits = Number(prev.package_units) || 1;
+                            // Se o preço do pacote estiver vazio, sugere o valor proporcional
+                            return {
+                              ...prev,
+                              sale_price: unitPrice,
+                              package_price: (isPkg && (!prev.package_price || prev.package_price === '')) && Number(unitPrice) > 0
+                                ? (Number(unitPrice) * pkgUnits).toFixed(2)
+                                : prev.package_price
+                            };
+                          });
+                        }}
+                        required
+                      />
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Valor cobrado ao vender 1 lata/item avulso
                       </div>
-                    )}
+                    </div>
                   </div>
+
+                  {/* Preço Exclusivo do Pacote / Caixa Fechado */}
+                  {(formData.unit === 'pct' || formData.unit === 'cx') && (
+                    <div className="form-group" style={{
+                      margin: 0,
+                      padding: '12px 14px',
+                      background: 'var(--bg-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-subtle)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label className="form-label" style={{ margin: 0, fontWeight: 700, color: 'var(--text-main)' }}>
+                          Preço do {formData.unit === 'cx' ? 'CAIXA Fechada' : 'PACOTE Fechado'} (R$) *
+                        </label>
+                        {Number(formData.sale_price) > 0 && Number(formData.package_units) > 1 && (
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            style={{ padding: '2px 8px', fontSize: '0.72rem', background: '#ffffff', border: '1px solid var(--border-subtle)' }}
+                            onClick={() => {
+                              const calc = (Number(formData.sale_price) * Number(formData.package_units)).toFixed(2);
+                              setFormData(prev => ({ ...prev, package_price: calc }));
+                            }}
+                          >
+                            Sugerir proporcional ({formData.package_units} × R$ {Number(formData.sale_price).toFixed(2)})
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="form-control"
+                        placeholder="Ex: 42.00"
+                        value={formData.package_price}
+                        onChange={(e) => setFormData({ ...formData, package_price: e.target.value })}
+                        required
+                      />
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        💡 Valor cobrado na venda quando o cliente levar o {formData.unit === 'cx' ? 'caixa' : 'pacote'} fechado com {formData.package_units || 1} unidades (pode ser diferente da soma das avulsas).
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quantidade Inicial manual para produtos normais */}

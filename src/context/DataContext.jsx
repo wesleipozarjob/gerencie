@@ -249,6 +249,10 @@ export const DataProvider = ({ children }) => {
 
   // ==================== OPERAÇÕES DE PRODUTOS / ESTOQUE ====================
   const addProduct = async (prodData) => {
+    const pkgPrice = (prodData.package_price !== undefined && prodData.package_price !== '' && prodData.package_price !== null)
+      ? Number(prodData.package_price)
+      : null;
+
     const newProd = {
       id: generateUUID(),
       company_id: companyId,
@@ -257,6 +261,7 @@ export const DataProvider = ({ children }) => {
       category: prodData.category || 'Geral',
       cost_price: Number(prodData.cost_price) || 0,
       sale_price: Number(prodData.sale_price) || 0,
+      package_price: pkgPrice,
       stock_quantity: Number(prodData.stock_quantity) || 0,
       min_stock: Number(prodData.min_stock) || 5,
       unit: prodData.unit || 'un',
@@ -284,9 +289,9 @@ export const DataProvider = ({ children }) => {
       try {
         await supabase.from('products').insert([newProd]);
       } catch (e) {
-        if (e?.message && e.message.includes('package_units')) {
-          const { package_units, ...withoutPkg } = newProd;
-          await supabase.from('products').insert([withoutPkg]).catch(err => console.warn('Erro retry sem package_units:', err));
+        if (e?.message && (e.message.includes('package_price') || e.message.includes('package_units'))) {
+          const { package_units, package_price, ...cleanPayload } = newProd;
+          await supabase.from('products').insert([cleanPayload]).catch(err => console.warn('Erro retry sem colunas extras:', err));
         } else {
           console.warn('Erro ao salvar produto no Supabase:', e);
         }
@@ -305,9 +310,9 @@ export const DataProvider = ({ children }) => {
       try {
         await supabase.from('products').update(updatedFields).eq('id', id);
       } catch (e) {
-        if (e?.message && e.message.includes('package_units')) {
-          const { package_units, ...withoutPkg } = updatedFields;
-          await supabase.from('products').update(withoutPkg).eq('id', id).catch(err => console.warn('Erro retry sem package_units:', err));
+        if (e?.message && (e.message.includes('package_price') || e.message.includes('package_units'))) {
+          const { package_units, package_price, ...cleanPayload } = updatedFields;
+          await supabase.from('products').update(cleanPayload).eq('id', id).catch(err => console.warn('Erro retry sem colunas extras:', err));
         } else {
           console.warn('Erro ao atualizar produto no Supabase:', e);
         }

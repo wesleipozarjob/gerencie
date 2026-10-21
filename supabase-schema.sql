@@ -64,10 +64,15 @@ CREATE TABLE IF NOT EXISTS public.products (
     min_stock NUMERIC(12, 2) DEFAULT 5.00,
     unit TEXT DEFAULT 'un', -- 'un', 'kg', 'cx', 'pct', 'lt'
     package_units NUMERIC(10, 2) DEFAULT 1, -- Quantidade de unidades que vêm no pacote/caixa
+    package_price NUMERIC(12, 2) DEFAULT NULL, -- Preço de venda diferenciado do pacote fechado
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Garantir colunas se a tabela já existia
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS package_units NUMERIC(10, 2) DEFAULT 1;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS package_price NUMERIC(12, 2) DEFAULT NULL;
 
 -- 6. Tabela de Vendas / Contas de Clientes (Gastos e Dívidas)
 CREATE TABLE IF NOT EXISTS public.sales (

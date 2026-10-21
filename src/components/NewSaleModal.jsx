@@ -45,14 +45,23 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
     const pkgUnits = Number(prod.package_units) || 1;
     const isSellingByPackage = sellUnitType === 'pct' && pkgUnits > 1;
 
-    // Quantidade real que sai do estoque (em unidades base)
-    const effectiveQuantity = isSellingByPackage ? rawQty * pkgUnits : rawQty;
-    const unitPrice = Number(prod.sale_price) || 0;
-    const subtotal = effectiveQuantity * unitPrice;
+    let effectiveQuantity;
+    let unitPrice;
+    let subtotal;
+    let displayName;
 
-    const displayName = isSellingByPackage
-      ? `${prod.name} (${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} c/ ${pkgUnits} un = ${effectiveQuantity} un)`
-      : `${prod.name} (${effectiveQuantity} un)`;
+    if (isSellingByPackage) {
+      const packagePrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
+      effectiveQuantity = rawQty * pkgUnits;
+      subtotal = rawQty * packagePrice;
+      unitPrice = packagePrice / pkgUnits;
+      displayName = `${prod.name} (${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} c/ ${pkgUnits} un = ${effectiveQuantity} un)`;
+    } else {
+      effectiveQuantity = rawQty;
+      unitPrice = Number(prod.sale_price) || 0;
+      subtotal = effectiveQuantity * unitPrice;
+      displayName = `${prod.name} (${effectiveQuantity} un avulsa)`;
+    }
 
     const newItem = {
       product_id: prod.id,
@@ -99,12 +108,24 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
         const rawQty = Number(itemQuantity) || 1;
         const pkgUnits = Number(prod.package_units) || 1;
         const isSellingByPackage = sellUnitType === 'pct' && pkgUnits > 1;
-        const effectiveQuantity = isSellingByPackage ? rawQty * pkgUnits : rawQty;
-        const unitPrice = Number(prod.sale_price) || 0;
-        const subtotal = effectiveQuantity * unitPrice;
-        const displayName = isSellingByPackage
-          ? `${prod.name} (${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} c/ ${pkgUnits} un = ${effectiveQuantity} un)`
-          : `${prod.name} (${effectiveQuantity} un)`;
+
+        let effectiveQuantity;
+        let unitPrice;
+        let subtotal;
+        let displayName;
+
+        if (isSellingByPackage) {
+          const packagePrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
+          effectiveQuantity = rawQty * pkgUnits;
+          subtotal = rawQty * packagePrice;
+          unitPrice = packagePrice / pkgUnits;
+          displayName = `${prod.name} (${rawQty} ${prod.unit === 'cx' ? 'cx' : 'pct'} c/ ${pkgUnits} un = ${effectiveQuantity} un)`;
+        } else {
+          effectiveQuantity = rawQty;
+          unitPrice = Number(prod.sale_price) || 0;
+          subtotal = effectiveQuantity * unitPrice;
+          displayName = `${prod.name} (${effectiveQuantity} un avulsa)`;
+        }
 
         finalItems.push({
           product_id: prod.id,
@@ -233,6 +254,9 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
 
                 if (!isPkg || pkgUnits <= 1) return null;
 
+                const pkgPrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
+                const unitPrice = Number(prod.sale_price) || 0;
+
                 return (
                   <div style={{
                     display: 'flex',
@@ -245,39 +269,41 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
                     flexWrap: 'wrap',
                     gap: '8px'
                   }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary-text)' }}>
-                      📦 Produto em {prod.unit === 'cx' ? 'Caixa' : 'Pacote'} (vem {pkgUnits} un):
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary-text)' }}>
+                      📦 Forma de Venda:
                     </span>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
                         type="button"
                         className="btn btn-sm"
                         style={{
-                          padding: '4px 10px',
-                          fontSize: '0.78rem',
-                          background: sellUnitType === 'un' ? 'var(--primary-light)' : 'transparent',
-                          border: `1px solid ${sellUnitType === 'un' ? 'var(--primary-border)' : 'var(--border-subtle)'}`,
-                          color: sellUnitType === 'un' ? 'var(--primary-text)' : 'var(--text-muted)',
-                          fontWeight: sellUnitType === 'un' ? 700 : 500
+                          padding: '5px 12px',
+                          fontSize: '0.8rem',
+                          background: sellUnitType === 'un' ? 'var(--primary)' : '#ffffff',
+                          border: `1px solid ${sellUnitType === 'un' ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                          color: sellUnitType === 'un' ? '#ffffff' : 'var(--text-main)',
+                          fontWeight: sellUnitType === 'un' ? 700 : 500,
+                          borderRadius: '6px'
                         }}
                         onClick={() => setSellUnitType('un')}
                       >
-                        Vender por Unidade
+                        ✓ Unidade Avulsa (R$ {unitPrice.toFixed(2)})
                       </button>
                       <button
                         type="button"
                         className="btn btn-sm"
                         style={{
-                          padding: '4px 10px',
-                          fontSize: '0.78rem',
-                          background: sellUnitType === 'pct' ? 'var(--primary-light)' : 'transparent',
-                          border: `1px solid ${sellUnitType === 'pct' ? 'var(--primary-border)' : 'var(--border-subtle)'}`,
-                          color: sellUnitType === 'pct' ? 'var(--primary-text)' : 'var(--text-muted)',
-                          fontWeight: sellUnitType === 'pct' ? 700 : 500
+                          padding: '5px 12px',
+                          fontSize: '0.8rem',
+                          background: sellUnitType === 'pct' ? 'var(--primary)' : '#ffffff',
+                          border: `1px solid ${sellUnitType === 'pct' ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                          color: sellUnitType === 'pct' ? '#ffffff' : 'var(--text-main)',
+                          fontWeight: sellUnitType === 'pct' ? 700 : 500,
+                          borderRadius: '6px'
                         }}
                         onClick={() => setSellUnitType('pct')}
                       >
-                        Vender por {prod.unit === 'cx' ? 'Caixa' : 'Pacote'} ({pkgUnits} un)
+                        {prod.unit === 'cx' ? 'Caixa Fechada' : 'Pacote Fechado'} (R$ {pkgPrice.toFixed(2)})
                       </button>
                     </div>
                   </div>
@@ -291,7 +317,7 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
                     value={selectedProductId}
                     onChange={(e) => {
                       setSelectedProductId(e.target.value);
-                      setSellUnitType('un');
+                      setSellUnitType('un'); // Sempre inicia como Unidade por padrão
                       setItemQuantity('1');
                     }}
                   >
@@ -306,16 +332,20 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
                         ? `${totU} un (${fullP} ${p.unit === 'cx' ? 'cx' : 'pct'}${remU > 0 ? ` e ${remU} un` : ''})`
                         : `${totU} ${p.unit}`;
 
+                      const priceInfo = (pUnits > 1 && p.package_price)
+                        ? `R$ ${Number(p.sale_price).toFixed(2)}/un (Pct: R$ ${Number(p.package_price).toFixed(2)})`
+                        : `R$ ${Number(p.sale_price).toFixed(2)}/un`;
+
                       return (
                         <option key={p.id} value={p.id}>
-                          {p.name} - R$ {Number(p.sale_price).toFixed(2)}/un (disp: {dispInfo})
+                          {p.name} - {priceInfo} • disp: {dispInfo}
                         </option>
                       );
                     })}
                   </select>
                 </div>
 
-                <div style={{ width: '110px' }}>
+                <div style={{ width: '120px' }}>
                   {(() => {
                     const prod = products.find(p => p.id === selectedProductId);
                     const pkgUnits = Number(prod?.package_units) || 1;
@@ -344,28 +374,46 @@ export const NewSaleModal = ({ isOpen, onClose, initialCustomer }) => {
                 </button>
               </div>
 
-              {/* Dica da quantidade total se estiver vendendo em pacotes */}
+              {/* Dica da quantidade total e valor da venda */}
               {(() => {
                 const prod = products.find(p => p.id === selectedProductId);
                 const pkgUnits = Number(prod?.package_units) || 1;
                 const isPkg = prod && (prod.unit === 'pct' || prod.unit === 'cx' || pkgUnits > 1);
 
-                if (!isPkg || sellUnitType !== 'pct' || !itemQuantity || Number(itemQuantity) <= 0) return null;
+                if (!prod || !itemQuantity || Number(itemQuantity) <= 0) return null;
 
-                const totalUnits = Number(itemQuantity) * pkgUnits;
-                const totalCost = totalUnits * Number(prod.sale_price);
+                if (isPkg && sellUnitType === 'pct') {
+                  const packagePrice = Number(prod.package_price) || (Number(prod.sale_price) * pkgUnits);
+                  const totalUnits = Number(itemQuantity) * pkgUnits;
+                  const totalCost = Number(itemQuantity) * packagePrice;
 
+                  return (
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: 'var(--primary-text)',
+                      fontWeight: 600,
+                      padding: '8px 12px',
+                      background: 'var(--primary-light)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--primary-border)'
+                    }}>
+                      📦 Vendendo <strong>{itemQuantity} {prod.unit === 'cx' ? 'caixas' : 'pacotes'}</strong> fechados (total <strong>{totalUnits} unidades</strong> saindo do estoque). Total: <strong>R$ {totalCost.toFixed(2)}</strong> (R$ {packagePrice.toFixed(2)} por {prod.unit === 'cx' ? 'caixa' : 'pacote'}).
+                    </div>
+                  );
+                }
+
+                const totalCost = Number(itemQuantity) * Number(prod.sale_price);
                 return (
                   <div style={{
                     fontSize: '0.8rem',
-                    color: 'var(--primary-text)',
-                    fontWeight: 600,
-                    padding: '6px 10px',
+                    color: 'var(--text-main)',
+                    fontWeight: 500,
+                    padding: '8px 12px',
                     background: '#ffffff',
                     borderRadius: 'var(--radius-sm)',
-                    border: '1px dashed var(--primary-border)'
+                    border: '1px solid var(--border-subtle)'
                   }}>
-                    💡 {itemQuantity} {prod.unit === 'cx' ? 'caixas' : 'pacotes'} = <strong>{totalUnits} unidades</strong> saindo do estoque (Subtotal: <strong>R$ {totalCost.toFixed(2)}</strong>)
+                    🥛 Vendendo <strong>{itemQuantity} unidades avulsas</strong>. Total: <strong>R$ {totalCost.toFixed(2)}</strong> (R$ {Number(prod.sale_price).toFixed(2)} por lata/unidade).
                   </div>
                 );
               })()}
